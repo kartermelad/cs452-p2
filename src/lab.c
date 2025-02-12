@@ -1,4 +1,7 @@
 #include "../src/lab.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 char *get_prompt(const char *env) {
 
@@ -33,5 +36,15 @@ void sh_destroy(struct shell *sh) {
 }
 
 void parse_args(int argc, char **argv) {
-    
+    int opt;
+    while ((opt = getopt(argc, argv, "v")) != 1) {
+        switch (opt) {
+            case 'v':
+                printf("Shell version: %d.%d\n", lab_VERSION_MAJOR, lab_VERSION_MINOR);
+                exit(0);
+            default:
+                fprintf(stderr, "Usage: %s [-v]\n", argv[0]);
+                exit(EXIT_FAILURE);
+        }
+    }
 }
