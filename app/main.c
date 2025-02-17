@@ -36,6 +36,13 @@ static void explain_waitpid(int status)
 
 int main(int argc, char *argv[])
 {
+    // Set up signal handlers to ignore specific signals
+    signal(SIGINT, SIG_IGN);  // Ignore SIGINT (Ctrl+C)
+    signal(SIGQUIT, SIG_IGN); // Ignore SIGQUIT (Ctrl+\)
+    signal(SIGTSTP, SIG_IGN); // Ignore SIGTSTP (Ctrl+Z)
+    signal(SIGTTIN, SIG_IGN); // Ignore SIGTTIN
+    signal(SIGTTOU, SIG_IGN); // Ignore SIGTTOU
+
     parse_args(argc, argv);
     struct shell sh;
     sh_init(&sh);
@@ -58,7 +65,7 @@ int main(int argc, char *argv[])
             pid_t pid = fork();
             if (pid == 0)
             {
-                /*This is the child process*/
+                /* This is the child process */
                 pid_t child = getpid();
                 setpgid(child, child);
                 tcsetpgrp(sh.shell_terminal, child);
@@ -68,6 +75,7 @@ int main(int argc, char *argv[])
                 signal(SIGTTIN, SIG_DFL);
                 signal(SIGTTOU, SIG_DFL);
                 execvp(cmd[0], cmd);
+                fprintf(stderr, "exec failed\n");
                 exit(EXIT_FAILURE);
             }
             else if (pid < 0)
@@ -82,7 +90,6 @@ int main(int argc, char *argv[])
             process group and give it control of the terminal
             to avoid a race condition
             */
-            // printf("shell:%d , child%d\n",sh.shell_pgid, pid);
             setpgid(pid, pid);
             tcsetpgrp(sh.shell_terminal, pid);
             int status;
@@ -90,12 +97,12 @@ int main(int argc, char *argv[])
             if (rval == -1)
             {
                 fprintf(stderr, "Wait pid failed with -1\n");
-		        explain_waitpid(status);
+                explain_waitpid(status);
             }
-            cmd_free(cmd);
             // get control of the shell
             tcsetpgrp(sh.shell_terminal, sh.shell_pgid);
         }
+        cmd_free(cmd);
     }
     exit(EXIT_SUCCESS);
 }
