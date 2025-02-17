@@ -2,9 +2,15 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 char *get_prompt(const char *env) {
-
+    char *prompt = getenv(env);
+    if (prompt == NULL) {
+        prompt = "shell> ";
+    }
+    return prompt;
 }
 
 int change_dir(char **dir) {
@@ -37,7 +43,7 @@ void sh_destroy(struct shell *sh) {
 
 void parse_args(int argc, char **argv) {
     int opt;
-    while ((opt = getopt(argc, argv, "v")) != 1) {
+    while ((opt = getopt(argc, argv, "v")) != -1) {
         switch (opt) {
             case 'v':
                 printf("Shell version: %d.%d\n", lab_VERSION_MAJOR, lab_VERSION_MINOR);

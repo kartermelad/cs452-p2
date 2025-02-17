@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
     parse_args(argc, argv);
     struct shell sh;
     sh_init(&sh);
+    sh.prompt = get_prompt("MY_PROMPT");
     char *line = (char *)NULL;
     while ((line = readline(sh.prompt)))
     {
@@ -89,7 +90,7 @@ int main(int argc, char *argv[])
             if (rval == -1)
             {
                 fprintf(stderr, "Wait pid failed with -1\n");
-		explain_waitpid(status);
+		        explain_waitpid(status);
             }
             cmd_free(cmd);
             // get control of the shell
