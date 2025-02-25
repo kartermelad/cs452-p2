@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <limits.h>
+#include <signal.h>
 
 // Function to get the shell prompt from an environment variable
 char *get_prompt(const char *env) {
@@ -131,17 +132,43 @@ bool do_builtin(struct shell *sh, char **argv) {
 
 // Function to initialize the shell structure
 void sh_init(struct shell *sh) {
-    sh->prompt = NULL;
     sh->shell_terminal = STDIN_FILENO;
+    sh->shell_is_interactive = isatty(sh->shell_terminal);
+    if (sh->shell_is_interactive) {
+        while (tcgetpgrp(sh->shell_terminal) != (sh->shell_pgid = getpgrp()))
+            kill(-sh->shell_pgid, SIGTTIN);
+    }
+
+    signal(SIGINT, SIG_IGN);
+    signal(SIGQUIT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
+    signal(SIGTTOU, SIG_IGN);
+
     sh->shell_pgid = getpid();
+    if (setpgid(sh->shell_pgid, sh->shell_pgid) < 0) {
+        perror("Couldn't put the shell in its own process group");
+        exit(1);
+    }
+    tcsetpgrp(sh->shell_terminal, sh->shell_pgid);
+    tcgetattr(sh->shell_terminal, &sh->shell_tmodes);
+
+    sh->prompt = get_prompt("MY_PROMPT");
 }
 
 // Function to destroy the shell structure and free resources
 void sh_destroy(struct shell *sh) {
-    if (sh->prompt && strcmp(sh->prompt, "shell>") != 0) {
-        free(sh->prompt);
-        sh->prompt = NULL;
-    }
+    tcsetpgrp(sh->shell_terminal, sh->shell_pgid);
+    tcsetattr(sh->shell_terminal, TCSADRAIN, &sh->shell_tmodes);
+
+    signal(SIGINT, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGTSTP, SIG_DFL);
+    signal(SIGTTIN, SIG_DFL);
+    signal(SIGTTOU, SIG_DFL);
+
+    free(sh->prompt);
+    kill(getpid(), SIGTERM);
 }
 
 // Function to parse command-line arguments
