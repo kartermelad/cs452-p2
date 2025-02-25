@@ -2,13 +2,23 @@
 #include "harness/unity.h"
 #include "../src/lab.h"
 
+char *global_string;
+char **global_array;
 
 void setUp(void) {
-  // set stuff up here
+     global_string = (char *)malloc(100 * sizeof(char));
+     global_array = (char **)malloc(10 * sizeof(char *));
+     for (int i = 0; i < 10; i++) {
+          global_array[i] = (char *)malloc(50 * sizeof(char));
+     }
 }
 
 void tearDown(void) {
-  // clean stuff up here
+     free(global_string);
+     for (int i = 0; i < 10; i++) {
+          free(global_array[i]);
+     }
+     free(global_array);
 }
 
 void test_parse_args_no_args(void) {
@@ -173,8 +183,59 @@ void test_ch_dir_root(void)
      cmd_free(cmd);
 }
 
+void test_cmd_parse_multiple_spaces(void) {
+     char **rval = cmd_parse("ls    -a   -l");
+     TEST_ASSERT_TRUE(rval);
+     TEST_ASSERT_EQUAL_STRING("ls", rval[0]);
+     TEST_ASSERT_EQUAL_STRING("-a", rval[1]);
+     TEST_ASSERT_EQUAL_STRING("-l", rval[2]);
+     TEST_ASSERT_EQUAL_STRING(NULL, rval[3]);
+     TEST_ASSERT_FALSE(rval[3]);
+     cmd_free(rval);
+}
+
+void test_trim_white_tabs(void) {
+     char *line = (char*) calloc(10, sizeof(char));
+     strncpy(line, "\tls -a\t", 10);
+     char *rval = trim_white(line);
+     TEST_ASSERT_EQUAL_STRING("ls -a", rval);
+     free(line);
+}
+
+void test_ch_dir_relative(void) {
+     char *line = (char*) calloc(10, sizeof(char));
+     strncpy(line, "cd ..", 10);
+     char **cmd = cmd_parse(line);
+     char *expected = getcwd(NULL, 0);
+     chdir("..");
+     char *expected_after = getcwd(NULL, 0);
+     chdir(expected);
+     change_dir(cmd);
+     char *actual = getcwd(NULL, 0);
+     TEST_ASSERT_EQUAL_STRING(expected_after, actual);
+     free(line);
+     free(actual);
+     free(expected);
+     free(expected_after);
+     cmd_free(cmd);
+}
+
+void test_cmd_parse_quotes(void) {
+     char **rval = cmd_parse("echo \"Hello World\"");
+     TEST_ASSERT_TRUE(rval);
+     TEST_ASSERT_EQUAL_STRING("echo", rval[0]);
+     TEST_ASSERT_EQUAL_STRING("\"Hello World\"", rval[1]);
+     TEST_ASSERT_EQUAL_STRING(NULL, rval[2]);
+     TEST_ASSERT_FALSE(rval[2]);
+     cmd_free(rval);
+}
+
 int main(void) {
   UNITY_BEGIN();
+  RUN_TEST(test_cmd_parse_quotes);
+  RUN_TEST(test_ch_dir_relative);
+  RUN_TEST(test_trim_white_tabs);
+  RUN_TEST(test_cmd_parse_multiple_spaces);
   RUN_TEST(test_parse_args_no_args);
   RUN_TEST(test_parse_args_version);
   RUN_TEST(test_parse_args_invalid);

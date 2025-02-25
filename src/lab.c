@@ -10,16 +10,18 @@
 #include <sys/wait.h>
 #include <limits.h>
 
+// Function to get the shell prompt from an environment variable
 char *get_prompt(const char *env) {
     char *prompt = getenv(env);
     if (prompt == NULL) {
-        prompt = strdup("shell>");
+        prompt = strdup("shell>"); // Default prompt
     } else {
-        prompt = strdup(prompt);
+        prompt = strdup(prompt); // Custom prompt
     }
     return prompt;
 }
 
+// Function to change the current working directory
 int change_dir(char **dir) {
     if (dir[1] == NULL) {
         char *home = getenv("HOME");
@@ -29,7 +31,7 @@ int change_dir(char **dir) {
                 fprintf(stderr, "cd: HOME environment variable not set and could not determine home directory\n");
                 return -1;
             }
-            home = pw->pw_dir;
+            home = pw->pw_dir; // Get home directory from passwd struct
         }
         if (chdir(home) != 0) {
             perror("cd");
@@ -44,34 +46,46 @@ int change_dir(char **dir) {
     return 0;
 }
 
+// Function to parse a command line into tokens
 char **cmd_parse(char const *line) {
     int bufsize = 64, position = 0;
     char **tokens = malloc(bufsize * sizeof(char*));
     char *line_copy = strdup(line);
-    char *token;
+    int in_quotes = 0;
+
     if (!tokens || !line_copy) {
         fprintf(stderr, "cmd_parse: allocation error\n");
         exit(EXIT_FAILURE);
     }
-    token = strtok(line_copy, " \t\r\n\a");
-    while (token != NULL) {
-        tokens[position] = strdup(token);
-        position++;
-        if (position >= bufsize) {
-            bufsize += 64;
-            tokens = realloc(tokens, bufsize * sizeof(char*));
-            if (!tokens) {
-                fprintf(stderr, "cmd_parse: allocation error\n");
-                exit(EXIT_FAILURE);
+    char *start = line_copy;
+    for (char *p = line_copy; *p; p++) {
+        if (*p == '"') {
+            in_quotes = !in_quotes; // Toggle in_quotes flag
+        } else if (isspace(*p) && !in_quotes) {
+            *p = '\0';
+            if (start != p) {
+                tokens[position++] = strdup(start);
+                if (position >= bufsize) {
+                    bufsize += 64;
+                    tokens = realloc(tokens, bufsize * sizeof(char*));
+                    if (!tokens) {
+                        fprintf(stderr, "cmd_parse: allocation error\n");
+                        exit(EXIT_FAILURE);
+                    }
+                }
             }
+            start = p + 1;
         }
-        token = strtok(NULL, " \t\r\n\a");
+    }
+    if (start != line_copy + strlen(line_copy)) {
+        tokens[position++] = strdup(start);
     }
     tokens[position] = NULL;
     free(line_copy);
     return tokens;
 }
 
+// Function to free the memory allocated for command tokens
 void cmd_free(char ** line) {
     for (int i = 0; line[i] != NULL; i++) {
         free(line[i]);
@@ -79,6 +93,7 @@ void cmd_free(char ** line) {
     free(line);
 }
 
+// Function to trim leading and trailing whitespace from a string
 char *trim_white(char *line) {
     char *end;
     while (isspace((unsigned char)*line)) {
@@ -95,6 +110,7 @@ char *trim_white(char *line) {
     return line;
 }
 
+// Function to handle built-in commands
 bool do_builtin(struct shell *sh, char **argv) {
     if (strcmp(argv[0], "cd") == 0) {
         return change_dir(argv) == 0;
@@ -113,12 +129,14 @@ bool do_builtin(struct shell *sh, char **argv) {
     return false;
 }
 
+// Function to initialize the shell structure
 void sh_init(struct shell *sh) {
     sh->prompt = NULL;
     sh->shell_terminal = STDIN_FILENO;
     sh->shell_pgid = getpid();
 }
 
+// Function to destroy the shell structure and free resources
 void sh_destroy(struct shell *sh) {
     if (sh->prompt && strcmp(sh->prompt, "shell>") != 0) {
         free(sh->prompt);
@@ -126,6 +144,7 @@ void sh_destroy(struct shell *sh) {
     }
 }
 
+// Function to parse command-line arguments
 void parse_args(int argc, char **argv) {
     int opt;
     while ((opt = getopt(argc, argv, "v")) != -1) {
